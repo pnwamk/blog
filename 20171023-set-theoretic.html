@@ -1,37 +1,50 @@
 
 <script type="text/x-mathjax-config">
-        MathJax.Hub.Config({
-        extensions: ["tex2jax.js"],
-        jax: ["input/TeX", "output/HTML-CSS"],
-        tex2jax: {
-          inlineMath: [[ '$','$']],
-          displayMath:  [['$$','$$']],
-          processEscapes: true
-        },
-        "HTML-CSS": { availableFonts: ["TeX"] }
-      });
-    </script> 
-    <script type="text/javascript" async
-   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?...">
-    </script>
+  MathJax.Hub.Config({
+  extensions: ["tex2jax.js"],
+  jax: ["input/TeX", "output/HTML-CSS"],
+  tex2jax: {
+    inlineMath: [[ '$','$']],
+    displayMath:  [['$$','$$']],
+    processEscapes: true
+  },
+  "HTML-CSS": { availableFonts: ["TeX"] }
+});
+</script> 
+<script type="text/javascript" async
+src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?...">
+</script>
 
-<h1>Set-theoretic Types: Brief Intro and Base Types</h1>
+Summary:
+<ul>
+<li>Semantic subtyping allows for a more complete
+  treatment of subtyping.
+</li>
+<li>Keeping types in DNF can be convenient for checking
+  emptiness.</li>
+<li>The base type portion of a DNF type is either $\top$, $\bot$, 
+  $(b_0 \vee ... \vee b_n)$ or $\neg(b_0 \vee ... \vee b_n)$.</li>
+</ul>
+
+<h2> Set-theoretic Types</h2>
 
 <p> Here is a simple grammar for types with set-theoretic constructors: </p>
 
 \begin{array}{l c l l}
- \tau , \sigma 
-  & ::=  &  b & Base \, type \, (e.g. \, Int,\, Str,\, etc) \\
-  & \mid &  \tau \times \tau  & Product \\
-  & \mid &  \tau \rightarrow \tau  & Function \\
-  & \mid &  \tau \vee \tau  & Union \\
-  & \mid &  \tau \wedge \tau  & Intersection \\
-  & \mid &  \neg \tau  & Negation
+\tau , \sigma 
+& ::=  &  b & Base \, type \, (e.g. \, Int,\, Str,\, etc) \\
+& \mid &  \tau \times \tau  & Product \\
+& \mid &  \tau \rightarrow \tau  & Function \\
+& \mid &  \tau \vee \tau  & Union \\
+& \mid &  \tau \wedge \tau  & Intersection \\
+& \mid &  \neg \tau  & Negation \\
+& \mid &  \top  & Anything
 \end{array}
 
 <p> In other words, it includes some simple types as well as set-theoretic 
-  operators that allow us to express logical "or" (union), "and" (intersection), 
-  and "not" (negation).</p>
+operators that allow us to express logical "or" (union), "and" (intersection), 
+and "not" (negation) along with top and bottom types $\top$ and $\bot$ (which
+is short for $\neg \top$).</p>
 
 <!-- more -->
 
@@ -45,44 +58,44 @@ programmers)". This blog post was largely motivated by those works.)</i></p>
 <h2> Why Semantic Subtyping? </h2>
 
 <p>Standard (i.e. syntactic) subtyping is simple and often straightforward 
-  to implement. For example, here are standard subtyping inference 
-  rules for reflexivity, products, and unions which can be written
-  almost verbatim in the implementation of a type system: </p>
+to implement. For example, here are standard subtyping inference 
+rules for reflexivity, products, and unions which can be written
+almost verbatim in the implementation of a type system: </p>
 
-  $$  \overline{\tau <: \tau} $$
-  
-  $$
-  \frac{\tau_1 <: \sigma_1 \quad  \tau_2 <: \sigma_2}
-       {(\tau_1 \times \tau_2) <: (\sigma_1 \times \sigma_2)}
-  $$
-  
-  $$
-  \frac{\tau_1 <: \sigma \quad  \tau_2 <: \sigma}
-  {(\tau_1 \vee \tau_2) <: \sigma}
-  $$
+$$  \overline{\tau <: \tau} $$
 
-  $$
-  \frac{\tau <: \sigma_1}
-  {\tau <: (\sigma_1 \vee \sigma_2)}
-  \quad
-  \frac{\tau <: \sigma_2}
-  {\tau <: (\sigma_1 \vee \sigma_2)}
-  $$
+$$
+\frac{\tau_1 <: \sigma_1 \quad  \tau_2 <: \sigma_2}
+ {(\tau_1 \times \tau_2) <: (\sigma_1 \times \sigma_2)}
+$$
+
+$$
+\frac{\tau_1 <: \sigma \quad  \tau_2 <: \sigma}
+{(\tau_1 \vee \tau_2) <: \sigma}
+$$
+
+$$
+\frac{\tau <: \sigma_1}
+{\tau <: (\sigma_1 \vee \sigma_2)}
+\quad
+\frac{\tau <: \sigma_2}
+{\tau <: (\sigma_1 \vee \sigma_2)}
+$$
 
 <p> These rules, however, do not allow us to derive the following true statement: </p>
 
 $$  ((Int \vee True) \times False) <: ((Int \times False) \vee (True \times False)) $$
 
 <p>This stems from the fact that such syntactic subtyping rules are sound but not complete,
-  i.e. they are valid rules of inference, but we cannot prove all valid subtyping statements
-  with them.</p>
-  
-  <p>To achieve completeness, our treatment of the subtyping relation $ \tau <: \sigma $ will
-    require a semantic treatment. We will interpret types as subsets of some
-    model, and the subtyping question will then be a matter of deciding set inclusion for the 
-    respective interpretations: $[\![\tau]\!] \subseteq [\![\sigma]\!]$. Put more simply,
-    if set of values described by $\tau$ is a subset of the set of values described by
-    $\sigma$, then (and only then) $ \tau <: \sigma $.</p>
+i.e. they are valid rules of inference, but we cannot prove all valid subtyping statements
+with them.</p>
+
+<p>To achieve completeness, our treatment of the subtyping relation $ \tau <: \sigma $ will
+require a semantic treatment. We will interpret types as subsets of some
+model, and the subtyping question will then be a matter of deciding set inclusion for the 
+respective interpretations: $[\![\tau]\!] \subseteq [\![\sigma]\!]$. Put more simply,
+if set of values described by $\tau$ is a subset of the set of values described by
+$\sigma$, then (and only then) $ \tau <: \sigma $.</p>
 
 <h2>Subtyping via a set emptiness check</h2>
 
@@ -91,37 +104,37 @@ $$  ((Int \vee True) \times False) <: ((Int \times False) \vee (True \times Fals
 $$ [\![\tau]\!] \subseteq [\![\sigma]\!] \equiv [\![\tau]\!] \setminus [\![\sigma]\!] = \emptyset $$
 
 <p>That is, instead of directly checking set inclusion, they check if removing $\sigma$ from
-  $\tau$ produces the empty type.</p>
+$\tau$ produces the empty type.</p>
 
 <h2> Boolean Disjunctive Normal Form (DNF) and Satisfiability </h2>
 
 <p> Recall that deciding whether a boolean formula is unsatisfiable is simpler 
-  when we convert the formula into DNF (i.e. a sum of products of boolean literals,
-  where a literal is a boolean variable or a negated boolean variable):</p> 
+when we convert the formula into DNF (i.e. a sum of products of boolean literals,
+where a literal is a boolean variable or a negated boolean variable):</p> 
 
 $$ \bigvee (x_0 \wedge ... \wedge \neg x_i \wedge ...) $$
 
 <p> This is because a DNF formula is unsatisfiable iff each clause is unsatisfiable, 
-  and each clause is unsatisfiable iff there are two incompatible literals 
-  (e.g. $x$ and $\neg x$). Thus checking for unsatisfiability requires only 
-  a linear scan over the DNF formula.</p> 
+and each clause is unsatisfiable iff there are two incompatible literals 
+(e.g. $x$ and $\neg x$). Thus checking for unsatisfiability requires only 
+a linear scan over the DNF formula.</p> 
 
 <h2> Type DNF and Inhabitation </h2>
 
 <p> Perhaps unsurprisingly then, deciding if a type is uninhabited is easier when 
-  the type is in DNF. In DNF, each clause in the disjunct is a conjunction of atomic types 
-  $ a $ (base types, products, or functions) and/or negated atomic types $ \neg a $:</p> 
-  
-  $$ \bigvee (a_0 \wedge ... \wedge \neg a_i \wedge ...) $$
+the type is in DNF. In DNF, each clause in the disjunct is a conjunction of atomic types 
+$ a $ (base types, products, or functions) and/or negated atomic types $ \neg a $:</p> 
 
-  <p>However, since the various kinds of atoms (base, product, and function) are non-overlapping, 
-    clauses with different  kinds of atoms can either be (1) eliminated since they are obviously 
-    uninhabited (e.g. a value cannot be a pair and a function) or (2) simplified to only contain
-    types of one kind (i.e. if a type is a product, we need not remember also that it
-    is not some function, etc). </p>
+$$ \bigvee (a_0 \wedge ... \wedge \neg a_i \wedge ...) $$
+
+<p>However, since the various kinds of atoms (base, product, and function) are non-overlapping, 
+clauses with different  kinds of atoms can either be (1) eliminated since they are obviously 
+uninhabited (e.g. a value cannot be a pair and a function) or (2) simplified to only contain
+types of one kind (i.e. if a type is a product, we need not remember also that it
+is not some function, etc). </p>
 
 <p>We can consider a type in DNF then to only contain clauses with literals of the
-  same kind:</p> 
+same kind:</p> 
 
 $$ (b_0 \wedge ... \wedge \neg b_i \wedge ...) $$
 
@@ -130,77 +143,105 @@ $$ ((\tau_{0} \times \sigma_{0}) \wedge ... \wedge \neg (\tau_{i} \times \sigma_
 $$ ((\tau_{0} \rightarrow \sigma_{0}) \wedge ... \wedge \neg (\tau_{i} \rightarrow \sigma_{i}) \wedge ...) $$
 
 <p>For a type to be uninhabited, each such conjunction of its DNF must be uninhabited. Since we will
-  be performing this check (subtyping) frequently while type checking programs, we want an efficient 
-  representation of DNF types and efficient algorithms for deciding their emptiness. 
+be performing this check (subtyping) frequently while type checking programs, we want an efficient 
+representation of DNF types and efficient algorithms for deciding their emptiness. 
 </p>
 
 <h2> An individual DNF base type clause </h2>
 
-<i>Claim: Any individual clause in a DNF of base types is equivalent to either $b$ 
-    or $\neg(b_0 \vee ... \vee b_n)$.</i>
+<i>Claim: Any individual clause (i.e. conjunction) in a DNF of base types is equivalent 
+  to either $\bot$, $b$, or $\neg(b_0 \vee ... \vee b_n)$.</i>
 
 <p>Base types describe disjoint, non-structural values in a language. 
-  Because of this, any individual base type DNF clause is equivalent to either
-  (1) a singleton, positive base type $b$ or (2) a negative disjunction of 
-  base types $\neg (b_0 \vee ... \vee b_n)$. 
+Because of this, any individual base type DNF clause can be simplified to
+one of the following forms:</p>
+
+<ul>
+<li>$\bot$</li>
+<li>$b$</li>
+<li>$\neg (b_0 \vee ... \vee b_n)$</li>  
+</ul>
+
+<p>
+  Let us walk through the possible combinations of base literals in
+  DNF to understand why that is the case:
 </p>
 
-<p>For (1), any other combination with a positive atom would either be 
-  uninhabited (if it contains $b$ and $ \neg b $ or $ b_1 $  and $ b_2 $ where 
-    $ b_1 \neq b_2 $) or it would be implied by a simpler clause with no negative types
-  (since base types are disjoint, if we know it is one base type, that implies 
-  the negation of any other non-equal base type). </p>
-
-<p>For (2), if a clause has no positive base types, then it has only negative base
-types, and $(\neg b_0 \wedge ... \wedge \neg b_n) \equiv \neg (b_0 \vee ... \vee b_n)$. </p>
-
+<ul>
+<li>Case $(b_0 \wedge ... \wedge b_1 \wedge ...)$ (i.e. a clause with one 
+  or more positive literals): Since positive literals are disjoint, 
+  if $b_0 \neq b_1$ then the type is equivalent to $\bot$, otherwise
+  if all are equal then it is equivalent to just $b_0$ (and possibly
+  additional, negative literals... but we rule this out in the next case).
+</li>
+<li>Case: $(b_0 \wedge \neg b_1 \wedge ...)$ 
+  (i.e. a clause with a positive literal and negative literals):
+  If $b_0 = b_1$ then the type is equivalent to $\bot$.
+  If $b_0 \neq b_1$ then $ (b_0 \wedge \neg b_1) \equiv b_0 $
+  since $b_0$ is a subset of the things that are not $b_1$,
+  and thus if there are positive and negative literals the type
+  is either empty or can be simplified to not include any
+  negative literals.
+</li>
+<li>Case: $(\neg b_0 \wedge \neg b_1 \wedge ...)$ 
+    (i.e. a clause with multiple negative literals):
+    using DeMorgan's law we can simplify this form to
+    $\neg (b_0 \vee b_1 \vee ...)$.
+  </li>
+</ul>
 
 <h2> DNF base type clauses </h2>
 
-<i>Claim: Any DNF of base types is equivalent to either $(b_0 \vee ... \vee b_n)$ 
-or $\neg(b_0 \vee ... \vee b_n)$.</i>
+<i>Claim: The base portion of a DNF type is equivalent to either $\bot$,
+    $\top$, $(b_0 \vee ... \vee b_n)$, or $\neg(b_0 \vee ... \vee b_n)$.</i>
 
-<p>If there are no base types we trivially satisfy the claim by having an empty disjunction.</p>
+<p>Since any individual clause in a DNF of base types is equivalent to either $\bot$, $b$, or 
+  $\neg(b_0 \vee ... \vee b_n)$  (see above), we just need to verify that these normal forms 
+  are closed under disjunction. We do so by examining each possibly combination of normal forms:</p>
 
-<p>If there are base type clauses, since each individual base type clause will either 
-  be a positive singleton base type or a negated union of base types, the portion of the 
-  DNF with base types together will look like:</p>
+<ul>
+<li>
+  Since $\bot \vee \tau \equiv \tau \vee bot \equiv \tau$, disjunction
+  with $ \bot $ is closed for these forms.
+</li>
+<li> 
+  The union of two positive clauses obviously simply results in a positive union:
 
-$$ (\bigvee b_i) \vee (\bigvee \neg (b_0 \vee ... \vee b_n))  $$
+  $$ (b_0 \vee ... \vee b_i) \vee (b_j \vee ... \vee b_n) 
+  \equiv (b_0 \vee ... \vee b_i \vee b_j \vee ... \vee b_n)$$
 
-<p>We can simplify this further, however, and show that positive and negated
-  atoms need never co-exist in a DNF clause.</p> 
+</li>
+<li>
+  For the union of a positive and negative clause we can begin by distributing the logical operators:
+
+  \begin{array}{l}
+  (b_0 \vee ... \vee b_i) \vee \neg(b_j \vee ... \vee b_n) \\
+  \equiv (b_0 \vee ... \vee b_i) \vee (\neg b_j \wedge ... \wedge \neg b_n) \\
+  \equiv (((b_0 \vee ... \vee b_i) \vee \neg b_j) \wedge ... \wedge ((b_0 \vee ... \vee b_i) \vee \neg b_n))
+  \end{array}
+
+  <p>We then simplify each $ ((b_0 \vee ... \vee b_i) \vee \neg b_k) $ in the conjunction.</p>
+
+  <p>If $ b_k \in (b_0 \vee ... \vee b_i) $ then the type is equivalent to $ \top $ and we can drop
+  it from the disjunction. </p>
   
-<p>Consider first if some $ b_i $ existed both as a positive atom in our disjunct 
-and in a negated clause. This would be logically equivalent to 
-$ b_i \vee \neg b_i $, which is  a tautology, and thus would be logically
-equivalent to $ \neg () \equiv Any $ (i.e. the top type). </p>
+  <p>If $ b_k \notin (b_0 \vee ... \vee b_i) $ then all we know for certain from the disjunction of
+  the two is $ \neg b_k $, and so we simplify the disjunction to be just $ \neg b_k $. </p>
 
-<p>Now consider if some $ b_i $ existed as a positive atom in our disjunct 
-and there existed negative clauses (none of which mentioned $ b_i $). Then if
-$ b_i $ held, that would imply all of the negative clauses (since base types are
-disjoint), and thus all the negative clauses can be removed without any loss of
-expressiveness in the type.</p>
-
-<p>Therefore any base portion of a DNF type with a positive base type(s) need not
-  contain any negative base type info, since that information could be simplified
-  away in one of the aforementioned ways.
+<p>Thus after simplifying each clause the conjunction, we are left with a conjunction of negative
+  base literals (specifically those which were in $\neg(b_j \vee ... \vee b_n)$ but not in 
+  $ (b_0 \vee ... \vee b_i) $) which is equivalent to the negation of a union of positive literals (i.e.
+  one of our expected normal forms).
 </p>
 
-<p>We have thus shown that positive and negative type information doesn't ever need
-  to both be stored (i.e. they simplify in one way or another).
-</p>
+</li>
+<li>
+  The union of two negative clauses $ \neg(b_0 \vee ... \vee b_i) \vee \neg(b_j \vee ... \vee b_n) $
+  is equivalent to the negation of the intersection of the clauses. Therefore if the intersection 
+  is empty---i.e. if there is no $ b_k $ s.t. $ b_k \in (b_0 \vee ... \vee b_i) $ 
+  and $ b_k \in (b_j \vee ... \vee b_n) $---then the result is $\top$, otherwise we get 
+  $ \neg(b_k \vee ... \vee b_m) $ (i.e. a negation of the base types $b_k ... b_m$ that appear
+  in both original types).
+</li>
 
-<p>If there is only positive information, then we have some disjunction
-  of positive base type atoms $(b_0 \vee ... \vee b_n)$.
-</p>
-
-
-<p>If there is only negative information, then consider if there are two or
-  more unique clauses of the form $\neg(b_0 \vee ... \vee b_n)$ -- this trivially
-  reduces to a tautology, since whatever type a value is, it either satisfies one
-  or the other by not being some of the types in one or the other. Thus there can
-  only be one (or none) clauses of the form $\neg(b_0 \vee ... \vee b_n)$ without
-  simplifying the type to $ \neg () \equiv Any $.
-</p>
-
+</ul>
