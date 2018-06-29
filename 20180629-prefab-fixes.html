@@ -16,7 +16,7 @@
     that should be added to this list, please do let us
     know.</p>
 
-<h2>Prefab predicate no longer seem to work</h2>
+<h2>(1) Why doesn't my prefab predicate work?</h2>
 
 <p>Consider the following prefab struct definition:</p>
 
@@ -124,13 +124,13 @@ two are equivalent):</p>
 
 <h4>Compatibility across Racket versions</h4>
 
-One downside to using <code>define-predicate</code> is that
-it will only work with prefabs in Racket versions >= 7.0. If
+<p>One downside to using <code>define-predicate</code> with a prefab
+type is that it will only work in Racket versions >= 7.0. If
 you would like to use this solution but in a way that is
 also compatible with previous versions of Racket, you
 can install the <code>prefab-predicate-compat</code> 
 package (e.g. <code>raco pkg install prefab-predicate-compat</code>)
-and use the following form:
+and use the following form:</p>
 
 <pre>
 (define-backwards-compatible-flat-prefab-predicate valid-point? point)
@@ -190,13 +190,13 @@ a <code>(Prefab point Any Any)</code>:</p>
     [else (error "not a point! ~a" p)]))
 </pre>
 
-I.e. we changed the domain from <code>Any</code> to 
+<p>I.e. we changed the domain from <code>Any</code> to 
 <code>(U point False)</code>, and with that type for
 the domain, <code>point?</code> returning <code>#true</code>
 tells us indeed the fields are numbers since the type <code>point</code>
-is equivalent to <code>(Prefab point Number Number)</code>.
+is equivalent to <code>(Prefab point Number Number)</code>.</p>
 
-<h2>Identifiers bound in match patterns have the wrong type</h2>
+<h2>(2) Why don't my prefab match clauses work?</h2>
 
 <p>The previous example (i.e. <code>sum-point</code>) could also
 be nicely written using Racket's <code>match</code> macro:</p>
@@ -228,7 +228,7 @@ probably the easiest solution:</p>
 <p>Restricting the domain of the function itself (as the previous
 section describes) may also solve the issue.</p>
 
-<h2>Field accessor/mutator issues</h2>
+<h2>(3) Why don't my prefab field accessor/mutators type check?</h2>
 
 <p>All field accessors and mutators are now polymorphic. This
 is because they work on <em>any</em> value which is the
