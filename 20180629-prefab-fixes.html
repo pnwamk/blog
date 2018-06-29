@@ -16,7 +16,7 @@
     that should be added to this list, please do let us
     know.</p>
 
-<h2>Prefab predicate no longer seem to work work</h2>
+<h2>Prefab predicate no longer seem to work</h2>
 
 <p>Consider the following prefab struct definition:</p>
 
@@ -27,6 +27,7 @@
 <p>Previously (Racket versions prior to 7.0) the following would type check:</p>
 
 <pre>
+(: sum-point (-> Any Number))
 (define (sum-point p)
   (cond
     [(point? p)
@@ -69,6 +70,7 @@ for the mutable fields).</p>
 <p>You can test the fields directly:</p>
 
 <pre>
+(: sum-point (-> Any Number))
 (define (sum-point p)
   (cond
     [(and (point? p)
@@ -82,6 +84,7 @@ for the mutable fields).</p>
 <p>Or you can let bind them and then test them:</p>
 
 <pre>
+(: sum-point (-> Any Number))
 (define (sum-point p)
   (cond
     [(point? p)
@@ -103,6 +106,7 @@ field types (as long as the field types are 1st order):</p>
 <pre>
 (define-predicate valid-point? point)
 
+(: sum-point (-> Any Number))
 (define (sum-point p)
   (cond
     [(valid-point? p)
@@ -118,6 +122,36 @@ two are equivalent):</p>
 (define-predicate valid-point? (Prefab point Number Number))
 </pre>
 
+<h4>Compatibility across Racket versions</h4>
+
+One downside to using <code>define-predicate</code> is that
+it will only work with prefabs in Racket versions >= 7.0. If
+you would like to use this solution but in a way that is
+also compatible with previous versions of Racket, you
+can install the <code>prefab-predicate-compat</code> 
+package (e.g. <code>raco pkg install prefab-predicate-compat</code>)
+and use the following form:
+
+<pre>
+(define-backwards-compatible-flat-prefab-predicate valid-point? point)
+</pre>
+
+This macro inspects the version of Racket which is being used and expands
+to code that will compile fine in both. In other words, in
+Racket versions prior to 7.0, it expands into the following:
+
+<pre>
+(define valid-point? point?)
+</pre>
+
+which is clearly the same as just using the (unsound) 
+predicate <code>point?</code> in versions.
+
+For versions 7.0 and on it expands into this:
+
+<pre>
+(define-predicate valid-point? point)
+</pre>
 
 <h3>Defining a predicate manually</h3>
 
@@ -136,10 +170,10 @@ may be worthwhile to define a manual predicate:</p>
 <p>Manually defining predicates can sometimes be a little bit
 tricky, FYI.</p>
 
-<h3>Adding a type annotation</h3>
+<h3>Using more specific types</h3>
 
-<p>Another alternative is to add type annotations so that, even
-even though the predicate <code>point?</code> doesn't test
+<p>Another alternative is to use more specific types so that, even
+though the predicate <code>point?</code> doesn't test
 the values in the fields, it is enough information to
 determine the value is indeed a <code>point</code>
 (equivalently <code>(Prefab point Number Number)</code>).
@@ -156,6 +190,12 @@ a <code>(Prefab point Any Any)</code>:</p>
     [else (error "not a point! ~a" p)]))
 </pre>
 
+I.e. we changed the domain from <code>Any</code> to 
+<code>(U point False)</code>, and with that type for
+the domain, <code>point?</code> returning <code>#true</code>
+tells us indeed the fields are numbers since the type <code>point</code>
+is equivalent to <code>(Prefab point Number Number)</code>.
+
 <h2>Identifiers bound in match patterns have the wrong type</h2>
 
 <p>The previous example (i.e. <code>sum-point</code>) could also
@@ -170,22 +210,23 @@ be nicely written using Racket's <code>match</code> macro:</p>
 
 <p>That would have type checked prior to the 7.0 Racket
 release. However, for the same reason the manual
-predicate version breaks, this will break too (i.e.
-there is no tests for the fields <code>x</code>
+predicate version breaks, this too will break (i.e.
+there are no tests for the fields <code>x</code>
 and <code>y</code>).</p>
 
 <p>In this case, adding predicates for the field patterns is
 probably the easiest solution:</p>
 
 <pre>
+(: sum-point (-> Any Number))
 (define (sum-point p)
   (match p
     [(point (? number? x) (? number? y)) (+ x y)]
     [_ (error "not a valid point! ~a" p)]))
 </pre>
 
-<p>Adding annotations to the function itself (as the previous
-section describes) should also solve the issue.</p>
+<p>Restricting the domain of the function itself (as the previous
+section describes) may also solve the issue.</p>
 
 <h2>Field accessor/mutator issues</h2>
 
