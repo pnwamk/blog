@@ -1,0 +1,235 @@
+
+<h1>Typed Racket v7.0 Prefab Changes</h1>
+
+    <p>For some time now, Typed Racket has unsoundly type checked
+    <a href="https://docs.racket-lang.org/guide/define-struct.html?q=prefab%20struct#%28part._prefab-struct%29">prefab
+    structs</a>. This bug been fixed for the Racket v7.0
+    release (for more info, see the relevant Typed
+    Racket <a href="">RFC</a> and the illustrative examples
+    in
+    the <a href="file:///home/pnwamk/Repos/plt/dev/racket/doc/ts-reference/type-ref.html?q=prefab#%28form._%28%28lib._typed-racket%2Fbase-env%2Fbase-types-extra..rkt%29._.Prefab%29%29">docs</a>).
+    If you suspect your prefab-utilizing Typed Racket code
+    no longer type checks because of this fix, we hope the
+    below instructions help make any necessary changes as
+    painless as possible. We apologize for any
+    inconvenience. If you believe there are issues/fixes
+    that should be added to this list, please do let us
+    know.</p>
+
+<h2>Prefab predicate no longer seem to work work</h2>
+
+<p>Consider the following prefab struct definition:</p>
+
+<pre>
+(struct point ([x : Number] [y : Number]) #:prefab)
+</pre>
+
+<p>Previously (Racket versions prior to 7.0) the following would type check:</p>
+
+<pre>
+(define (sum-point p)
+  (cond
+    [(point? p)
+      (+ (point-x p) (point-y p))]
+    [else (error "not a point! ~a" p)]))
+</pre>
+
+<p>However, in Racket 7.0 and beyond, Typed Racket will
+complain with the following error messages: </p>
+
+<pre>
+Type Checker: type mismatch
+  expected: Number
+  given: Any in: (point-x p)
+
+Type Checker: type mismatch
+  expected: Number
+  given: Any in: (point-y p)
+</pre>
+
+<p>This is because <code>point?</code> only tests if the value
+is a prefab structure with key <code>'point</code> and has 2
+fields and says nothing about the contents of the fields.
+In other words, <code>point?</code> is a predicate for the
+type <code>(Prefab point Any Any)</code> (if the prefab is
+immutable). If <code>point</code> were a mutable prefab
+struct, the predicate would be for the type <code>(PrefabTop point
+2)</code>, which is a type for a prefab that can be read from, but
+not written to (since we do now know what type to enforce
+for the mutable fields).</p>
+
+<p>Fixes for this could involve any of the following:</p>
+
+<h3>Manually Inspecting Field Values</h3>
+
+<p>Manually testing the values produced by <code>(point-x p)</code> and
+<code>(point-y p)</code> with <code>number?</code> is one
+(perhaps verbose) way to fix the issue.</p>
+
+<p>You can test the fields directly:</p>
+
+<pre>
+(define (sum-point p)
+  (cond
+    [(and (point? p)
+          (number? (point-x p))
+          (number? (point-y p)))
+      (+ (point-x p) (point-y p))]
+    [else (error "not a valid point! ~a" p)]))
+</pre>
+
+
+<p>Or you can let bind them and then test them:</p>
+
+<pre>
+(define (sum-point p)
+  (cond
+    [(point? p)
+     (let ([x (point-x p)]
+           [y (point-x p)])
+       (if (and (number? x)
+                (number? y))
+           (+ x y)
+           (error "not a valid point! ~a" p)))]
+    [else (error "not a valid point! ~a" p)]))
+</pre>
+
+
+<h3>Defining a predicate automatically</h3>
+
+<p>You can define a predicate for the type which includes the
+field types (as long as the field types are 1st order):</p>
+
+<pre>
+(define-predicate valid-point? point)
+
+(define (sum-point p)
+  (cond
+    [(valid-point? p)
+      (+ (point-x p) (point-y p))]
+    [else (error "not a valid point! ~a" p)]))
+</pre>
+
+<p>or equivalently you can define the predicate with an
+explicit <code>Prefab</code> type if you prefer (the
+two are equivalent):</p>
+
+<pre>
+(define-predicate valid-point? (Prefab point Number Number))
+</pre>
+
+
+<h3>Defining a predicate manually</h3>
+
+<p><code>define-predicate</code> uses a flat contract as a
+predicate. If you're concerned with the performance, it
+may be worthwhile to define a manual predicate:</p>
+
+<pre>
+(: valid-point? (-> Any Boolean : point))
+(define (valid-point? p)
+  (and (point? p)
+       (number? (point-x p))
+       (number? (point-y p))))
+</pre>
+
+<p>Manually defining predicates can sometimes be a little bit
+tricky, FYI.</p>
+
+<h3>Adding a type annotation</h3>
+
+<p>Another alternative is to add type annotations so that, even
+even though the predicate <code>point?</code> doesn't test
+the values in the fields, it is enough information to
+determine the value is indeed a <code>point</code>
+(equivalently <code>(Prefab point Number Number)</code>).
+This will work well when you know the value is either
+a <code>point</code> or some other value which is not
+a <code>(Prefab point Any Any)</code>:</p>
+
+<pre>
+(: sum-point (-> (U point False) Number))
+(define (sum-point p)
+  (cond
+    [(point? p)
+      (+ (point-x p) (point-y p))]
+    [else (error "not a point! ~a" p)]))
+</pre>
+
+<h2>Identifiers bound in match patterns have the wrong type</h2>
+
+<p>The previous example (i.e. <code>sum-point</code>) could also
+be nicely written using Racket's <code>match</code> macro:</p>
+
+<pre>
+(define (sum-point p)
+  (match p
+    [(point x y) (+ x y)]
+    [_ (error "not a valid point! ~a" p)]))
+</pre>
+
+<p>That would have type checked prior to the 7.0 Racket
+release. However, for the same reason the manual
+predicate version breaks, this will break too (i.e.
+there is no tests for the fields <code>x</code>
+and <code>y</code>).</p>
+
+<p>In this case, adding predicates for the field patterns is
+probably the easiest solution:</p>
+
+<pre>
+(define (sum-point p)
+  (match p
+    [(point (? number? x) (? number? y)) (+ x y)]
+    [_ (error "not a valid point! ~a" p)]))
+</pre>
+
+<p>Adding annotations to the function itself (as the previous
+section describes) should also solve the issue.</p>
+
+<h2>Field accessor/mutator issues</h2>
+
+<p>All field accessors and mutators are now polymorphic. This
+is because they work on <em>any</em> value which is the
+particular prefab, regardless of the values the fields
+contain.</p>
+
+<p>Unfortunately, this means that some code which used to
+type check prior to version 7.0:</p>
+
+<pre>
+(: add-xs (-> (Listof point) Number))
+(define (add-xs ps)
+  (apply + (map point-x ps)))
+</pre>
+
+
+<p>will now fail to type check because Typed Racket's
+type inference fails to recognize some combinations
+of polymorphic operations. E.g., the above example
+will not error with the following message:</p>
+
+<pre>
+Type Checker: Bad arguments to function in `apply':
+Domains: (#(struct:Rest (Number)))*
+Arguments:  (Listof Any)
+ in: (apply + (map point-x ps))
+</pre>
+
+<p>Mousing over the expression <code>(map point-x ps)</code>in
+DrRacket indicates it was assigned type <code>(Listof
+Any)</code>, which is not a argument for <code>(apply +
+...)</code>.</p>
+
+<p>This can be fixed by manually instantiating <code>point-x</code>:</p>
+
+<pre>
+(: add-xs (-> (Listof point) Number))
+(define (add-xs ps)
+  (apply + (map (inst point-x Number) ps)))
+</pre>
+
+<p>Or a monomorphic version of <code>point-x</code> could be
+defined (i.e. a non-polymorphic version which expects a
+<code>(Prefab point Number Number)</code> and returns
+a <code>Number</code>).</p>
